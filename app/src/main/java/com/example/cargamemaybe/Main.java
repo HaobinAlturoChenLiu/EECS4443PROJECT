@@ -7,7 +7,7 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import java.util.Random;
 
-public class FullscreenActivity extends AppCompatActivity {
+public class Main extends AppCompatActivity {
 
     private ImageView carImageView;
     private Handler handler;
@@ -53,6 +53,5 @@ public class FullscreenActivity extends AppCompatActivity {
         }
         carImageView.setX(xpos);
     }
-
     // Add touch event
 }

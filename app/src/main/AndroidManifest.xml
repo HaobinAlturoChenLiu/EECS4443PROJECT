@@ -13,7 +13,7 @@
         android:theme="@style/Theme.Cargamemaybe"
         tools:targetApi="31">
         <activity
-            android:name=".FullscreenActivity"
+            android:name=".Main"
             android:configChanges="orientation|keyboardHidden|screenSize"
             android:exported="true"
             android:label="@string/title_activity_fullscreen"

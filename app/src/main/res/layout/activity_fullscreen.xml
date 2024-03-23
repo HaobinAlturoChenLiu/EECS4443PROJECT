@@ -5,7 +5,7 @@
     android:layout_height="match_parent"
     android:background="?attr/fullscreenBackgroundColor"
     android:theme="@style/ThemeOverlay.Cargamemaybe.FullscreenContainer"
-    tools:context=".FullscreenActivity">
+    tools:context=".Main">
 
     <!-- The primary full-screen view. This ImageView will display the game visuals. -->
     <ImageView

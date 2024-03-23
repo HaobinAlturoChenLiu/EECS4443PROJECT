@@ -1,4 +1,4 @@
 package com.example.cargamemaybe;
 
-public class GameLoopThread {
+public class Coins {
 }
