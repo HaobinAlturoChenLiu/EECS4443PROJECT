@@ -13,9 +13,10 @@ public class FullscreenActivity extends AppCompatActivity {
     private Handler handler;
     private Random random;
 
-    private int xpos = 300;
-    private int ypos = 700;
-    private int roadmove = 0;
+    private int xpos = 300; // Initial X position of the car
+    private int roadWidth = 600; // Width of the road
+    private int roadMargin = 50; // Margin from the road boundary
+    private int roadCenter; // Center of the road
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -47,11 +48,11 @@ public class FullscreenActivity extends AppCompatActivity {
         // Use carImageView.setImageResource(R.drawable.carImage) to set car image
         // For simplicity, let's just move the car horizontally back and forth
         xpos += 10; // Move the car horizontally
-        if (xpos > 600) { // If the car goes beyond the right boundary
-            xpos = 600; // Reset the car position
+        if (xpos > roadWidth - roadMargin) {
+            xpos = roadMargin;
         }
-        carImageView.setX(xpos); // Set the new X position of the car ImageView
+        carImageView.setX(xpos);
     }
 
-    // Add touch event handling if needed
+    // Add touch event
 }
