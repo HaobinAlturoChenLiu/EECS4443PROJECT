@@ -4,24 +4,31 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
 
-class GameView(var c: Context, var gameActivity: GameActivity): View(c) {
+class GameView(var c: Context, var gameActivity: GameActivity) : View(c) {
 
     private var myPaint: Paint? = null
     private var myCarPosition = 0
+    private var targetCarPosition = myCarPosition // New variable to store target position
+    private var movingRight = false // Flag to indicate movement to the right
+    private var movingLeft = false // Flag to indicate movement to the left
     private var speed = 1
     private var time = 0
     private var score = 0
     private val coins = ArrayList<HashMap<String, Any>>()
-    private val smoothness = 15
+    private val smoothness = 30
+    private var coinSize = 0
+    private val carMoveSpeed = 1 // Adjust as needed
     var viewWidth = 0
     var viewHeight = 0
-    private var coinSize = 0
 
     init {
         myPaint = Paint()
+        isFocusable = true // Set the view to be focusable
+        requestFocus() // Request focus for the view
     }
 
     override fun onDraw(canvas: Canvas) {
@@ -100,11 +107,16 @@ class GameView(var c: Context, var gameActivity: GameActivity): View(c) {
         myPaint!!.textSize = 40f
         canvas.drawText("Score : $score", 80f, 80f, myPaint!!)
         canvas.drawText("Speed : $speed", 380f, 80f, myPaint!!)
+
+        // Gradual movement towards the target position
+        if (movingRight && myCarPosition < targetCarPosition) {
+            myCarPosition = (myCarPosition + carMoveSpeed).coerceAtMost(targetCarPosition)
+        } else if (movingLeft && myCarPosition > targetCarPosition) {
+            myCarPosition = (myCarPosition - carMoveSpeed).coerceAtLeast(targetCarPosition)
+        }
+
         invalidate()
     }
-
-
-
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         when (event!!.action) {
             MotionEvent.ACTION_DOWN -> {
@@ -116,15 +128,38 @@ class GameView(var c: Context, var gameActivity: GameActivity): View(c) {
                 // Determine the lane in which the touch event occurred
                 val touchedLane = (x1 / laneWidth).toInt()
 
-                // Update the car's position based on the touched lane
-                myCarPosition = touchedLane
+                // Update the target car position
+                targetCarPosition = touchedLane
+                // Set the movement flags based on the target position
+                movingRight = targetCarPosition > myCarPosition
+                movingLeft = targetCarPosition < myCarPosition
             }
-            MotionEvent.ACTION_UP -> {
-                // Handle touch up event if needed
+            MotionEvent.ACTION_DOWN -> {
+                // Stop the car's movement when touch is released
+                movingRight = false
+                movingLeft = false
             }
         }
         // Redraw the view to reflect the updated car position
         invalidate()
         return true
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
+        when (keyCode) {
+            KeyEvent.KEYCODE_VOLUME_UP -> {
+                // Move the car to the right lane
+                targetCarPosition = (targetCarPosition + 1).coerceAtMost(9)
+                movingRight = true
+                return true
+            }
+            KeyEvent.KEYCODE_VOLUME_DOWN -> {
+                // Move the car to the left lane
+                targetCarPosition = (targetCarPosition - 1).coerceAtLeast(0)
+                movingLeft = true
+                return true
+            }
+        }
+        return super.onKeyDown(keyCode, event)
     }
 }
