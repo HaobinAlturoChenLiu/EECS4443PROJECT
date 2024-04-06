@@ -8,11 +8,14 @@ import android.graphics.Paint
 import android.view.KeyEvent
 import android.view.MotionEvent
 import android.view.View
-import java.util.logging.Handler
 import kotlin.math.abs
 import kotlin.math.sqrt
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 
-class GameView(c: Context) : View(c) {
+class GameView(context: Context) : View(context), SensorEventListener {
 
     private var myPaint: Paint? = null
     private var myCarPosition = 0
@@ -29,6 +32,11 @@ class GameView(c: Context) : View(c) {
     private var viewHeight = 0
     private var gameOver = false
 
+    // Gyroscope variables
+    private var sensorManager: SensorManager? = null
+    private var gyroscopeSensor: Sensor? = null
+    private var gyroscopeValues = FloatArray(3) // Array to store gyroscope values
+
     init {
         myPaint = Paint()
         isFocusable = true // Set the view to be focusable
@@ -42,6 +50,65 @@ class GameView(c: Context) : View(c) {
             invalidate()
         }, 90000) // 90 seconds (90000 milliseconds)
     }
+
+    private fun moveCarRight() {
+        targetCarPosition = (targetCarPosition + 1).coerceIn(0, smoothness - 3)
+        movingRight = true
+        movingLeft = false
+    }
+
+    private fun moveCarLeft() {
+        targetCarPosition = (targetCarPosition - 1).coerceIn(2, smoothness - 2)
+        movingLeft = true
+        movingRight = false
+    }
+
+    private fun stopCarMovement() {
+        movingLeft = false
+        movingRight = false
+    }
+    override fun onAttachedToWindow() {
+        super.onAttachedToWindow()
+        // Initialize sensor manager
+        sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
+        // Get gyroscope sensor
+        gyroscopeSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
+        // Register gyroscope sensor listener
+        sensorManager?.registerListener(this, gyroscopeSensor, SensorManager.SENSOR_DELAY_GAME)
+    }
+
+    override fun onDetachedFromWindow() {
+        super.onDetachedFromWindow()
+        // Unregister gyroscope sensor listener
+        sensorManager?.unregisterListener(this)
+    }
+
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_GYROSCOPE) {
+            // Update gyroscope values
+            gyroscopeValues = event.values
+            // Adjust car position based on gyroscope data
+            handleGyroscopeData()
+        }
+    }
+
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+        // Not used
+    }
+
+    private fun handleGyroscopeData() {
+        // Adjust car position based on gyroscope data
+        // Increase the threshold to make it less sensitive
+        val tiltThreshold = 0.6f // Adjust threshold as needed
+        if (gyroscopeValues[0] > tiltThreshold) {
+            moveCarRight()
+        } else if (gyroscopeValues[0] < -tiltThreshold) {
+            moveCarLeft()
+        } else {
+            stopCarMovement()
+        }
+    }
+
     @SuppressLint("DrawAllocation", "UseCompatLoadingForDrawables")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -132,7 +199,7 @@ class GameView(c: Context) : View(c) {
                 if (distance < (carHitboxWidth + coinSize) / 2) {
                     coinsToRemove.add(coin) // Add the collected coin to the removal list
                     score++ // Increment the score
-                    speed = 1 + abs(score / 8)
+                    speed = 1+ abs(score / 10)
                     if (score > highScore) {
                         highScore = score
                     }
@@ -157,70 +224,53 @@ class GameView(c: Context) : View(c) {
         invalidate()
     }
 
-
-    @SuppressLint("ClickableViewAccessibility")
-    override fun onTouchEvent(event: MotionEvent?): Boolean {
-        if (gameOver) return true // Don't handle touch events if the game is over
-
-        when (event!!.action) {
-            MotionEvent.ACTION_DOWN -> {
-                // Get the X coordinate of the touch event
-                val x1 = event.x
-
-                // Calculate the width of each lane
-                val laneWidth = viewWidth / smoothness
-                // Determine the lane in which the touch event occurred
-                val touchedLane = (x1 / laneWidth).toInt()
-
-                // Update the target car position
-                targetCarPosition = touchedLane
-                // Set the movement flags based on the target position
-                movingRight = targetCarPosition > myCarPosition
-                movingLeft = targetCarPosition < myCarPosition
-            }
-
-            MotionEvent.ACTION_DOWN -> {
-                // Stop the car's movement when touch is released
-                movingRight = false
-                movingLeft = false
-            }
-        }
-        // Redraw the view to reflect the updated car position
-        invalidate()
-        return true
-    }
+    // Define a variable to track whether the volume key is being held
 
     override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
         if (gameOver) return true // Don't handle key events if the game is over
 
-        val action = event?.action
-
-        when (event?.keyCode) {
-            KeyEvent.KEYCODE_VOLUME_DOWN -> {
-                if (action == KeyEvent.ACTION_DOWN) {
-                    // Move the car to the right lane
-                    targetCarPosition = (targetCarPosition + 1).coerceIn(0, smoothness - 3)
-                    movingRight = true
+        when (event?.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                    moveCarRight()
                     return true
-                } else if (action == KeyEvent.ACTION_UP) {
-                    movingRight = false
+                }
+
+                if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+                    moveCarLeft()
                     return true
                 }
             }
-            KeyEvent.KEYCODE_VOLUME_UP -> {
-                if (action == KeyEvent.ACTION_DOWN) {
-                    // Move the car to the left lane
-                    targetCarPosition = (targetCarPosition - 1).coerceIn(2, smoothness - 2)
-                    movingLeft = true
+            KeyEvent.ACTION_UP -> {
+                stopCarMovement()
                     return true
-                } else if (action == KeyEvent.ACTION_UP) {
-                    movingLeft = false
-                    return true
-                }
+
             }
         }
+
         return super.dispatchKeyEvent(event)
     }
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        if (gameOver) return true // Don't handle touch events if the game is over
 
+        when (event?.action) {
+            MotionEvent.ACTION_DOWN -> {
+                // Check if the touch event occurred on the left or right half of the screen
+                val touchX = event.x
+                if (touchX < viewWidth / 2) {
+                     moveCarLeft()
+                } else {
+                    moveCarRight()
+                }
+                return true
+            }
+            MotionEvent.ACTION_UP -> {
+                stopCarMovement()
+                return true
+            }
+        }
+
+        return super.onTouchEvent(event)
+    }
 
 }
