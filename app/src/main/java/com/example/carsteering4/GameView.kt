@@ -23,7 +23,7 @@ class GameView(c: Context) : View(c) {
     private var time = 0
     private var score = 0
     private val coins = ArrayList<HashMap<String, Any>>()
-    private val smoothness = 6
+    private val smoothness = 10
     private var coinSize = 0
     private var viewWidth = 0
     private var viewHeight = 0
@@ -42,7 +42,6 @@ class GameView(c: Context) : View(c) {
             invalidate()
         }, 90000) // 90 seconds (90000 milliseconds)
     }
-
     @SuppressLint("DrawAllocation", "UseCompatLoadingForDrawables")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -60,7 +59,8 @@ class GameView(c: Context) : View(c) {
 
         if (time % 700 < 10 + speed) {
             val map = HashMap<String, Any>()
-            map["lane"] = (0 until smoothness).random() // Update to smoothness lanes
+            // Generate random lane position within the range of center lanes
+            map["lane"] = (smoothness / 2 - 3 until smoothness / 2 + 3).random()
             map["startTime"] = time
             coins.add(map)
         }
@@ -74,19 +74,35 @@ class GameView(c: Context) : View(c) {
         val carY = viewHeight - 2 - carHeight
 
         val d = resources.getDrawable(R.drawable.car, null)
+
+        // Rotate the car image based on movement direction
+        val rotationAngle = when {
+            movingRight -> 15f // Tilt right when moving right
+            movingLeft -> -15f // Tilt left when moving left
+            else -> 0f // No tilt if not moving
+        }
+        canvas.save()
+        canvas.rotate(rotationAngle, carX + carWidth / 2.toFloat(), carY + carHeight / 2.toFloat())
+
         d.setBounds(carX, carY, carX + carWidth, carY + carHeight)
         d.draw(canvas)
+        canvas.restore()
+
         myPaint!!.color = Color.GREEN
         var highScore = 0
 
-        val iterator = coins.iterator()
-        while (iterator.hasNext()) {
-            val coin = iterator.next()
+        val indicatorHeight = 20 // Height of the indicator
+        val coinsToRemove = mutableListOf<HashMap<String, Any>>() // List to store coins that need to be removed
+        for (coin in coins) {
             try {
-                val laneWidth = viewWidth / smoothness // Calculate the width of each lane
-                val coinLane = (coin["lane"] as Int).coerceIn(0, smoothness - 1) // Ensure the coin's lane is within valid range
+                val coinLane = (coin["lane"] as Int).coerceIn(0, smoothness - 1)
+                val laneWidth = viewWidth / smoothness
+                val indicatorX = coinLane * laneWidth + (laneWidth - carWidth) / 2.toFloat()
+                val indicatorY = (viewHeight - 2 - indicatorHeight).toFloat() // Position above the car
+                // Draw the indicator
+                myPaint!!.color = Color.YELLOW // Adjust color as needed
+                canvas.drawRect(indicatorX, indicatorY, indicatorX + laneWidth.toFloat(), indicatorY + indicatorHeight.toFloat(), myPaint!!)
 
-                // Calculate the X position of the coin
                 val coinX = coinLane * laneWidth + laneWidth / 2 - coinSize / 2
                 val coinY = time - coin["startTime"] as Int
 
@@ -114,7 +130,7 @@ class GameView(c: Context) : View(c) {
                             ((carHitboxCenterY - coinCenterY) * (carHitboxCenterY - coinCenterY)).toDouble()
                 )
                 if (distance < (carHitboxWidth + coinSize) / 2) {
-                    iterator.remove() // Remove the collected coin
+                    coinsToRemove.add(coin) // Add the collected coin to the removal list
                     score++ // Increment the score
                     speed = 1 + abs(score / 8)
                     if (score > highScore) {
@@ -123,12 +139,16 @@ class GameView(c: Context) : View(c) {
                 }
 
                 if (coinY > viewHeight + carHeight) {
-                    iterator.remove()
+                    coinsToRemove.add(coin) // Add the coin to be removed if it goes beyond the screen
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+
+        // Remove collected coins and coins that went beyond the screen
+        coins.removeAll(coinsToRemove)
+
         myPaint!!.color = Color.WHITE
         myPaint!!.textSize = 40f
         canvas.drawText("Score : $score", 80f, 80f, myPaint!!)
@@ -136,6 +156,7 @@ class GameView(c: Context) : View(c) {
 
         invalidate()
     }
+
 
     @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent?): Boolean {
@@ -169,26 +190,6 @@ class GameView(c: Context) : View(c) {
         return true
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
-        if (gameOver) return true // Don't handle key events if the game is over
-
-        when (keyCode) {
-            KeyEvent.KEYCODE_SPACE -> {
-                // Move the car to the right lane
-                targetCarPosition = (targetCarPosition + 1).coerceAtMost(smoothness - 1)
-                movingRight = true
-                return true
-            }
-            KeyEvent.KEYCODE_TAB -> {
-                // Move the car to the left lane
-                targetCarPosition = (targetCarPosition - 1).coerceAtLeast(0)
-                movingLeft = true
-                return true
-            }
-        }
-        return super.onKeyDown(keyCode, event)
-    }
-
     override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
         if (gameOver) return true // Don't handle key events if the game is over
 
@@ -198,7 +199,7 @@ class GameView(c: Context) : View(c) {
             KeyEvent.KEYCODE_VOLUME_DOWN -> {
                 if (action == KeyEvent.ACTION_DOWN) {
                     // Move the car to the right lane
-                    targetCarPosition = (targetCarPosition + 1).coerceAtMost(smoothness - 1)
+                    targetCarPosition = (targetCarPosition + 1).coerceIn(0, smoothness - 3)
                     movingRight = true
                     return true
                 } else if (action == KeyEvent.ACTION_UP) {
@@ -209,7 +210,7 @@ class GameView(c: Context) : View(c) {
             KeyEvent.KEYCODE_VOLUME_UP -> {
                 if (action == KeyEvent.ACTION_DOWN) {
                     // Move the car to the left lane
-                    targetCarPosition = (targetCarPosition - 1).coerceAtLeast(0)
+                    targetCarPosition = (targetCarPosition - 1).coerceIn(2, smoothness - 2)
                     movingLeft = true
                     return true
                 } else if (action == KeyEvent.ACTION_UP) {
@@ -220,4 +221,6 @@ class GameView(c: Context) : View(c) {
         }
         return super.dispatchKeyEvent(event)
     }
+
+
 }
