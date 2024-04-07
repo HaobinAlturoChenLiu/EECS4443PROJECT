@@ -5,23 +5,37 @@ import android.content.Context
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
-import android.view.KeyEvent
-import android.view.MotionEvent
-import android.view.View
-import kotlin.math.abs
-import kotlin.math.sqrt
 import android.hardware.Sensor
 import android.hardware.SensorEvent
 import android.hardware.SensorEventListener
 import android.hardware.SensorManager
+import android.view.KeyEvent
+import android.view.MotionEvent
+import android.view.View
+import android.widget.Button
+import androidx.appcompat.app.AppCompatActivity
+import kotlin.math.abs
+import kotlin.math.sqrt
+
+// Enum to represent different control modes
+enum class ControlMode {
+    GYROSCOPE,
+    TOUCH,
+    VOLUME
+}
 
 class GameView(context: Context) : View(context), SensorEventListener {
 
+    // Paint object for drawing
     private var myPaint: Paint? = null
+
+    // Car position variables
     private var myCarPosition = 0
-    private var targetCarPosition = myCarPosition // New variable to store target position
-    private var movingRight = false // Flag to indicate movement to the right
-    private var movingLeft = false // Flag to indicate movement to the left
+    private var targetCarPosition = myCarPosition
+    private var movingRight = false
+    private var movingLeft = false
+
+    // Game variables
     private var speed = 1
     private var time = 0
     private var score = 0
@@ -32,101 +46,94 @@ class GameView(context: Context) : View(context), SensorEventListener {
     private var viewHeight = 0
     private var gameOver = false
 
+    // Control mode variable
+    private var controlMode = ControlMode.VOLUME
+
     // Gyroscope variables
     private var sensorManager: SensorManager? = null
     private var gyroscopeSensor: Sensor? = null
-    private var gyroscopeValues = FloatArray(3) // Array to store gyroscope values
+    private var gyroscopeValues = FloatArray(3)
 
-    init {
-        myPaint = Paint()
-        isFocusable = true // Set the view to be focusable
-        isFocusableInTouchMode = true // Allow focus to be acquired in touch mode
-        requestFocus() // Request focus for the view
+    // Game over listener interface
+    var gameOverListener: GameOverListener? = null
 
-        // Start the game timer
-        val handler = android.os.Handler()
-        handler.postDelayed({
-            gameOver = true
-            invalidate()
-        }, 90000) // 90 seconds (90000 milliseconds)
+    // Interface for game over listener
+    interface GameOverListener {
+        fun onGameOver()
     }
 
+    // Initialization block
+    init {
+        // Initialize Paint object
+        myPaint = Paint()
+        isFocusable = true
+        isFocusableInTouchMode = true
+        requestFocus()
+        restartTimer()
+    }
+
+    // Method to move car to the right
     private fun moveCarRight() {
         targetCarPosition = (targetCarPosition + 1).coerceIn(0, smoothness - 3)
         movingRight = true
         movingLeft = false
     }
 
+    // Method to move car to the left
     private fun moveCarLeft() {
         targetCarPosition = (targetCarPosition - 1).coerceIn(2, smoothness - 2)
         movingLeft = true
         movingRight = false
     }
 
+    // Method to stop car movement
     private fun stopCarMovement() {
         movingLeft = false
         movingRight = false
     }
+
+    // Makes Volume KeyDown work
     override fun onAttachedToWindow() {
         super.onAttachedToWindow()
-        // Initialize sensor manager
         sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
-        // Get gyroscope sensor
         gyroscopeSensor = sensorManager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
-        // Register gyroscope sensor listener
-        sensorManager?.registerListener(this, gyroscopeSensor, SensorManager.SENSOR_DELAY_GAME)
+        if (controlMode == ControlMode.GYROSCOPE) {
+            sensorManager?.registerListener(this, gyroscopeSensor, SensorManager.SENSOR_DELAY_GAME)
+        }
     }
 
+    // Makes Volume KeyDown work
     override fun onDetachedFromWindow() {
         super.onDetachedFromWindow()
-        // Unregister gyroscope sensor listener
-        sensorManager?.unregisterListener(this)
-    }
-
-    override fun onSensorChanged(event: SensorEvent?) {
-        if (event?.sensor?.type == Sensor.TYPE_GYROSCOPE) {
-            // Update gyroscope values
-            gyroscopeValues = event.values
-            // Adjust car position based on gyroscope data
-            handleGyroscopeData()
+        if (controlMode == ControlMode.GYROSCOPE) {
+            sensorManager?.unregisterListener(this)
         }
     }
 
-    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
-        // Not used
-    }
-
-    private fun handleGyroscopeData() {
-        // Adjust car position based on gyroscope data
-        // Increase the threshold to make it less sensitive
-        val tiltThreshold = 0.6f // Adjust threshold as needed
-        if (gyroscopeValues[0] > tiltThreshold) {
-            moveCarRight()
-        } else if (gyroscopeValues[0] < -tiltThreshold) {
-            moveCarLeft()
-        } else {
-            stopCarMovement()
-        }
-    }
-
+    // Rendering the game (I hope you like pasta because there is a lot of spaghetti code ahead)
+    // Code based from this video: https://www.youtube.com/watch?v=fs0LuDvVVb0
     @SuppressLint("DrawAllocation", "UseCompatLoadingForDrawables")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
         if (gameOver) {
-            // Display final score
+            // Draw game over message
             myPaint!!.color = Color.WHITE
             myPaint!!.textSize = 80f
             canvas.drawText("Game Over", (viewWidth / 2 - 200).toFloat(), (viewHeight / 2 - 50).toFloat(), myPaint!!)
             canvas.drawText("Score : $score", (viewWidth / 2 - 180).toFloat(), (viewHeight / 2 + 50).toFloat(), myPaint!!)
+            (context as? AppCompatActivity)?.runOnUiThread {
+                (context as? AppCompatActivity)?.findViewById<Button>(R.id.restartBtn)?.visibility = View.VISIBLE
+            }
             return
         }
 
+        // Update view dimensions
         viewWidth = this.measuredWidth
         viewHeight = this.measuredHeight
 
+        // Add coins to the game
         if (time % 700 < 10 + speed) {
             val map = HashMap<String, Any>()
-            // Generate random lane position within the range of center lanes
             map["lane"] = (smoothness / 2 - 3 until smoothness / 2 + 3).random()
             map["startTime"] = time
             coins.add(map)
@@ -136,17 +143,15 @@ class GameView(context: Context) : View(context), SensorEventListener {
         val carHeight = viewWidth / 10
         myPaint!!.style = Paint.Style.FILL
 
-        // Calculate the position to draw the car
         val carX = targetCarPosition * viewWidth / smoothness + (viewWidth / smoothness - carWidth) / 2
         val carY = viewHeight - 2 - carHeight
 
         val d = resources.getDrawable(R.drawable.car, null)
 
-        // Rotate the car image based on movement direction
         val rotationAngle = when {
-            movingRight -> 15f // Tilt right when moving right
-            movingLeft -> -15f // Tilt left when moving left
-            else -> 0f // No tilt if not moving
+            movingRight -> 15f
+            movingLeft -> -15f
+            else -> 0f
         }
         canvas.save()
         canvas.rotate(rotationAngle, carX + carWidth / 2.toFloat(), carY + carHeight / 2.toFloat())
@@ -156,18 +161,16 @@ class GameView(context: Context) : View(context), SensorEventListener {
         canvas.restore()
 
         myPaint!!.color = Color.GREEN
-        var highScore = 0
 
-        val indicatorHeight = 20 // Height of the indicator
-        val coinsToRemove = mutableListOf<HashMap<String, Any>>() // List to store coins that need to be removed
+        val indicatorHeight = 20
+        val coinsToRemove = mutableListOf<HashMap<String, Any>>()
         for (coin in coins) {
             try {
                 val coinLane = (coin["lane"] as Int).coerceIn(0, smoothness - 1)
                 val laneWidth = viewWidth / smoothness
                 val indicatorX = coinLane * laneWidth + (laneWidth - carWidth) / 2.toFloat()
-                val indicatorY = (viewHeight - 2 - indicatorHeight).toFloat() // Position above the car
-                // Draw the indicator
-                myPaint!!.color = Color.YELLOW // Adjust color as needed
+                val indicatorY = (viewHeight - 2 - indicatorHeight).toFloat()
+                myPaint!!.color = Color.YELLOW
                 canvas.drawRect(indicatorX, indicatorY, indicatorX + laneWidth.toFloat(), indicatorY + indicatorHeight.toFloat(), myPaint!!)
 
                 val coinX = coinLane * laneWidth + laneWidth / 2 - coinSize / 2
@@ -175,13 +178,11 @@ class GameView(context: Context) : View(context), SensorEventListener {
 
                 val d2 = resources.getDrawable(R.drawable.coin, null)
 
-                // Calculate the coin size
                 coinSize = viewWidth / 30
 
                 d2.setBounds(coinX, coinY - coinSize, coinX + coinSize, coinY)
                 d2.draw(canvas)
 
-                // Calculate the center points of the car and the coin for collision detection
                 val carHitboxWidth = carWidth * 0.6f
                 val carHitboxHeight = carHeight * 0.6f
                 val carHitboxX = carX + (carWidth - carHitboxWidth) / 2
@@ -191,29 +192,21 @@ class GameView(context: Context) : View(context), SensorEventListener {
                 val coinCenterX = coinX + coinSize / 2
                 val coinCenterY = coinY - coinSize / 2
 
-                // Check for collision between car hitbox and coin
-                val distance = sqrt(
-                    ((carHitboxCenterX - coinCenterX) * (carHitboxCenterX - coinCenterX)).toDouble() +
-                            ((carHitboxCenterY - coinCenterY) * (carHitboxCenterY - coinCenterY)).toDouble()
-                )
+                val distance = sqrt(((carHitboxCenterX - coinCenterX) * (carHitboxCenterX - coinCenterX)).toDouble() + ((carHitboxCenterY - coinCenterY) * (carHitboxCenterY - coinCenterY)).toDouble())
                 if (distance < (carHitboxWidth + coinSize) / 2) {
-                    coinsToRemove.add(coin) // Add the collected coin to the removal list
-                    score++ // Increment the score
-                    speed = 1+ abs(score / 10)
-                    if (score > highScore) {
-                        highScore = score
-                    }
+                    coinsToRemove.add(coin)
+                    score++
+                    speed = 1 + abs(score / 20)
                 }
 
                 if (coinY > viewHeight + carHeight) {
-                    coinsToRemove.add(coin) // Add the coin to be removed if it goes beyond the screen
+                    coinsToRemove.add(coin)
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
 
-        // Remove collected coins and coins that went beyond the screen
         coins.removeAll(coinsToRemove)
 
         myPaint!!.color = Color.WHITE
@@ -224,53 +217,119 @@ class GameView(context: Context) : View(context), SensorEventListener {
         invalidate()
     }
 
-    // Define a variable to track whether the volume key is being held
+    // Called when sensor data is changed (Gyroscope)
+    override fun onSensorChanged(event: SensorEvent?) {
+        if (event?.sensor?.type == Sensor.TYPE_GYROSCOPE) {
+            gyroscopeValues = event.values
+            handleGyroscopeData()
+        }
+    }
 
+    // Empty Method so it compiles
+    override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {
+    }
+
+    // Method to handle gyroscope data for controlling the car
+    private fun handleGyroscopeData() {
+        val tiltThreshold = 0.6f
+        if (gyroscopeValues[0] > tiltThreshold) {
+            moveCarRight()
+        } else if (gyroscopeValues[0] < -tiltThreshold) {
+            moveCarLeft()
+        } else {
+            stopCarMovement()
+        }
+    }
+
+    // Key events for controlling the car (Volume Buttons)
     override fun dispatchKeyEvent(event: KeyEvent?): Boolean {
-        if (gameOver) return true // Don't handle key events if the game is over
+        if (gameOver) return true
+        if (controlMode == ControlMode.VOLUME) {
+            when (event?.action) {
+                KeyEvent.ACTION_DOWN -> {
+                    if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+                        moveCarRight()
+                        return true
+                    }
 
-        when (event?.action) {
-            KeyEvent.ACTION_DOWN -> {
-                if (event.keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
-                    moveCarRight()
-                    return true
+                    if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
+                        moveCarLeft()
+                        return true
+                    }
                 }
 
-                if (event.keyCode == KeyEvent.KEYCODE_VOLUME_UP) {
-                    moveCarLeft()
+                KeyEvent.ACTION_UP -> {
+                    stopCarMovement()
                     return true
                 }
-            }
-            KeyEvent.ACTION_UP -> {
-                stopCarMovement()
-                    return true
-
             }
         }
 
         return super.dispatchKeyEvent(event)
     }
-    override fun onTouchEvent(event: MotionEvent?): Boolean {
-        if (gameOver) return true // Don't handle touch events if the game is over
 
-        when (event?.action) {
-            MotionEvent.ACTION_DOWN -> {
-                // Check if the touch event occurred on the left or right half of the screen
-                val touchX = event.x
-                if (touchX < viewWidth / 2) {
-                     moveCarLeft()
-                } else {
-                    moveCarRight()
+    // Handle touch events for controlling the car
+    override fun onTouchEvent(event: MotionEvent?): Boolean {
+        if (gameOver) return true
+        if (controlMode == ControlMode.TOUCH) {
+            when (event?.action) {
+                MotionEvent.ACTION_DOWN -> {
+                    val touchX = event.x
+                    if (touchX < viewWidth / 2) {
+                        moveCarLeft()
+                    } else {
+                        moveCarRight()
+                    }
+                    return true
                 }
-                return true
-            }
-            MotionEvent.ACTION_UP -> {
-                stopCarMovement()
-                return true
+
+                MotionEvent.ACTION_UP -> {
+                    stopCarMovement()
+                    return true
+                }
             }
         }
 
         return super.onTouchEvent(event)
     }
 
+    // Method to set control mode
+    fun setControlMode(mode: ControlMode) {
+        controlMode = mode
+        when (mode) {
+            ControlMode.GYROSCOPE -> sensorManager?.registerListener(this, gyroscopeSensor, SensorManager.SENSOR_DELAY_GAME)
+            ControlMode.TOUCH -> sensorManager?.unregisterListener(this)
+            ControlMode.VOLUME -> sensorManager?.unregisterListener(this)
+        }
+    }
+
+    // Method for resetting timer (90s for game to end by itself)
+    private fun restartTimer() {
+        val handler = android.os.Handler()
+        handler.postDelayed({
+            gameOver = true
+            invalidate()
+            gameOverListener?.onGameOver()
+        }, 90000)
+    }
+
+    // Method to reset game state
+    fun resetGame() {
+        // Reset game state variables
+        myCarPosition = 0
+        targetCarPosition = myCarPosition
+        movingRight = false
+        movingLeft = false
+        speed = 1
+        time = 0
+        score = 0
+        coins.clear()
+        gameOver = false
+
+        // Restart the timer for game over after 90 seconds
+        restartTimer()
+
+        // Invalidate the view to trigger redraw
+        invalidate()
+    }
 }

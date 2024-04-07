@@ -14,13 +14,52 @@
         android:id="@+id/score"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Score : 0" />
+        android:text="Score : 0"
+        android:visibility="gone"
+        />
 
     <Button
-        android:id="@+id/StartBtn"
+        android:id="@+id/startBtn"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:text="Start" />
 
+    <!-- RadioGroup for choice -->
+    <RadioGroup
+        android:id="@+id/choiceRadioGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:gravity="start|center_vertical">
+
+        <!-- RadioButton for Gyroscope -->
+        <RadioButton
+            android:id="@+id/gyroscopeRadioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Gyroscope" />
+
+        <!-- RadioButton for Touch -->
+        <RadioButton
+            android:id="@+id/touchRadioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Touch" />
+
+        <!-- RadioButton for Volume Button -->
+        <RadioButton
+            android:id="@+id/volumeButtonRadioButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Volume Button"
+            android:checked="true"/>
+    </RadioGroup>
+
+    <Button
+        android:id="@+id/restartBtn"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Restart"
+        android:visibility="gone" />
 
 </LinearLayout>
