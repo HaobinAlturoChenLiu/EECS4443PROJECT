@@ -21,10 +21,6 @@ class MainActivity : AppCompatActivity(), GameView.GameOverListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        // Hide the status bar
-        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
-        actionBar?.hide() // Hide the action bar if present
-
         // Initialize views
         startBtn = findViewById(R.id.startBtn)
         restartBtn = findViewById(R.id.restartBtn)
@@ -50,7 +46,7 @@ class MainActivity : AppCompatActivity(), GameView.GameOverListener {
         }
 
         // Set OnCheckedChangeListener for choice radio group
-        choiceRadioGroup.setOnCheckedChangeListener { group, checkedId ->
+        choiceRadioGroup.setOnCheckedChangeListener { _, checkedId ->
             // Update control mode based on selected radio button
             when (checkedId) {
                 R.id.gyroscopeRadioButton -> gameView.setControlMode(ControlMode.GYROSCOPE)
@@ -58,6 +54,14 @@ class MainActivity : AppCompatActivity(), GameView.GameOverListener {
                 R.id.volumeButtonRadioButton -> gameView.setControlMode(ControlMode.VOLUME)
             }
         }
+    }
+
+    // Hide the status bar
+    // Adding suppress because of OCD
+    @Suppress("DEPRECATION")
+    private fun hideStatusBar(){
+        window.decorView.systemUiVisibility = View.SYSTEM_UI_FLAG_FULLSCREEN
+        actionBar?.hide() // Hide the action bar if present
     }
 
     // Method to start the game
@@ -72,6 +76,7 @@ class MainActivity : AppCompatActivity(), GameView.GameOverListener {
         startBtn.visibility = View.GONE
         restartBtn.visibility = View.GONE
         choiceRadioGroup.visibility = View.GONE
+        hideStatusBar()
     }
 
     // Method to restart the game
@@ -85,11 +90,13 @@ class MainActivity : AppCompatActivity(), GameView.GameOverListener {
         choiceRadioGroup.visibility = View.VISIBLE
         score.visibility = View.GONE
         gameView.resetGame()
+        hideStatusBar()
     }
 
     // Implement the onGameOver method from GameView.GameOverListener interface
     override fun onGameOver() {
         // Show the restart button
         restartBtn.visibility = View.VISIBLE
+        hideStatusBar()
     }
 }

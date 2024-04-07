@@ -30,8 +30,7 @@ class GameView(context: Context) : View(context), SensorEventListener {
     private var myPaint: Paint? = null
 
     // Car position variables
-    private var myCarPosition = 0
-    private var targetCarPosition = myCarPosition
+    private var targetCarPosition = 0
     private var movingRight = false
     private var movingLeft = false
 
@@ -112,6 +111,7 @@ class GameView(context: Context) : View(context), SensorEventListener {
 
     // Rendering the game (I hope you like pasta because there is a lot of spaghetti code ahead)
     // Code based from this video: https://www.youtube.com/watch?v=fs0LuDvVVb0
+    // Adding suppress because of OCD
     @SuppressLint("DrawAllocation", "UseCompatLoadingForDrawables")
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
@@ -122,7 +122,7 @@ class GameView(context: Context) : View(context), SensorEventListener {
             canvas.drawText("Game Over", (viewWidth / 2 - 200).toFloat(), (viewHeight / 2 - 50).toFloat(), myPaint!!)
             canvas.drawText("Score : $score", (viewWidth / 2 - 180).toFloat(), (viewHeight / 2 + 50).toFloat(), myPaint!!)
             (context as? AppCompatActivity)?.runOnUiThread {
-                (context as? AppCompatActivity)?.findViewById<Button>(R.id.restartBtn)?.visibility = View.VISIBLE
+                (context as? AppCompatActivity)?.findViewById<Button>(R.id.restartBtn)?.visibility = VISIBLE
             }
             return
         }
@@ -207,7 +207,7 @@ class GameView(context: Context) : View(context), SensorEventListener {
             }
         }
 
-        coins.removeAll(coinsToRemove)
+        coins.removeAll(coinsToRemove.toSet())
 
         myPaint!!.color = Color.WHITE
         myPaint!!.textSize = 40f
@@ -269,6 +269,8 @@ class GameView(context: Context) : View(context), SensorEventListener {
     }
 
     // Handle touch events for controlling the car
+    // Adding suppress because of OCD
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent?): Boolean {
         if (gameOver) return true
         if (controlMode == ControlMode.TOUCH) {
@@ -304,6 +306,8 @@ class GameView(context: Context) : View(context), SensorEventListener {
     }
 
     // Method for resetting timer (90s for game to end by itself)
+    // Adding suppress because of OCD
+    @Suppress("DEPRECATION")
     private fun restartTimer() {
         val handler = android.os.Handler()
         handler.postDelayed({
@@ -315,9 +319,7 @@ class GameView(context: Context) : View(context), SensorEventListener {
 
     // Method to reset game state
     fun resetGame() {
-        // Reset game state variables
-        myCarPosition = 0
-        targetCarPosition = myCarPosition
+        targetCarPosition = 0
         movingRight = false
         movingLeft = false
         speed = 1
@@ -326,10 +328,7 @@ class GameView(context: Context) : View(context), SensorEventListener {
         coins.clear()
         gameOver = false
 
-        // Restart the timer for game over after 90 seconds
         restartTimer()
-
-        // Invalidate the view to trigger redraw
         invalidate()
     }
 }
