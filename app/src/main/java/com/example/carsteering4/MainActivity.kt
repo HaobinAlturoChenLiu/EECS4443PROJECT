@@ -66,6 +66,7 @@ class MainActivity : AppCompatActivity(), GameView.GameOverListener {
 
     // Method to start the game
     private fun startGame() {
+
         // Set background resource for GameView
         gameView.setBackgroundResource(R.drawable.road)
 
@@ -76,6 +77,10 @@ class MainActivity : AppCompatActivity(), GameView.GameOverListener {
         startBtn.visibility = View.GONE
         restartBtn.visibility = View.GONE
         choiceRadioGroup.visibility = View.GONE
+        score.visibility = View.GONE
+
+        // Reset the game timer
+        gameView.resetGame()
         hideStatusBar()
     }
 
